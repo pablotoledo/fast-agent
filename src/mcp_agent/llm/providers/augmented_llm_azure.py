@@ -1,5 +1,15 @@
 import asyncio
 from typing import List, Dict, Any
+from urllib.parse import urlparse
+
+def _extract_resource_name(url: str) -> str | None:
+    """
+    Dada una URL https://<resource>.openai.azure.com/...
+    devuelve '<resource>' o None si no encaja.
+    """
+    host = urlparse(url).hostname or ""
+    suffix = ".openai.azure.com"
+    return host.replace(suffix, "") if host.endswith(suffix) else None
 
 import asyncio
 from openai import AzureOpenAI
@@ -53,13 +63,37 @@ class AzureOpenAIAugmentedLLM(AugmentedLLM):
         self.resource_name = azure_cfg.resource_name
         self.deployment_name = kwargs.get("model") or azure_cfg.azure_deployment
         self.api_version = azure_cfg.api_version or DEFAULT_AZURE_API_VERSION
-        self.base_url = azure_cfg.base_url or (f"https://{self.resource_name}.openai.azure.com/")
 
-        if not self.api_key or not self.resource_name or not self.deployment_name:
+        # Validaciones flexibles
+        if not self.api_key:
             raise ProviderKeyError(
                 "Missing Azure OpenAI credentials",
-                "Azure provider requires 'api_key', 'resource_name', and 'azure_deployment' in config."
+                "Field 'api_key' is required in azure config."
             )
+
+        if not (self.resource_name or azure_cfg.base_url):
+            raise ProviderKeyError(
+                "Missing Azure endpoint",
+                "Provide either 'resource_name' or 'base_url' under azure config."
+            )
+
+        if not self.deployment_name:
+            raise ProviderKeyError(
+                "Missing deployment name",
+                "Set 'azure_deployment' in config or pass model=<deployment>."
+            )
+
+        self.base_url = (
+            azure_cfg.base_url
+            or f"https://{self.resource_name}.openai.azure.com/"
+        )
+        # Si resource_name faltaba intenta extraerlo de base_url
+        if not self.resource_name and azure_cfg.base_url:
+            self.resource_name = _extract_resource_name(azure_cfg.base_url)
+
+        self.logger.info(
+            f"AzureOpenAI endpoint: {self.base_url} — deployment: {self.deployment_name}"
+        )
 
         # Set up AzureOpenAI client (per-instance, no global state)
         self.client = AzureOpenAI(

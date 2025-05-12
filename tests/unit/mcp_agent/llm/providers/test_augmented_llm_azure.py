@@ -11,19 +11,34 @@ class DummyLogger:
     enable_markup = True
 
 class DummyAzureConfig:
-    api_key = "test-key"
-    resource_name = "test-resource"
-    azure_deployment = "test-deployment"
-    api_version = "2023-05-15"
-    base_url = None
+    def __init__(self):
+        self.api_key = "test-key"
+        self.resource_name = "test-resource"
+        self.azure_deployment = "test-deployment"
+        self.api_version = "2023-05-15"
+        self.base_url = None
 
 class DummyConfig:
-    azure = DummyAzureConfig()
-    logger = DummyLogger()
+    def __init__(self):
+        self.azure = DummyAzureConfig()
+        self.logger = DummyLogger()
 
 class DummyContext:
-    config = DummyConfig()
-    executor = None
+    def __init__(self):
+        self.config = DummyConfig()
+        self.executor = None
+
+def test_init_with_base_url_only():
+    cfg = DummyAzureConfig()
+    cfg.base_url = "https://mydemo.openai.azure.com/"
+    cfg.resource_name = None
+    class Ctx:
+        def __init__(self):
+            self.config = type("Config", (), {"azure": cfg, "logger": DummyLogger()})()
+            self.executor = None
+    llm = AzureOpenAIAugmentedLLM(context=Ctx())
+    assert llm.base_url.startswith("https://mydemo.openai.azure.com")
+    assert llm.resource_name == "mydemo"
 
 @pytest.mark.asyncio
 async def test_azure_llm_chat_completion(monkeypatch):
