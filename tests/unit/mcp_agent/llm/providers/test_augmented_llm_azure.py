@@ -1,0 +1,95 @@
+import types
+import pytest
+import asyncio
+
+from mcp_agent.llm.providers.augmented_llm_azure import AzureOpenAIAugmentedLLM
+from mcp_agent.llm.provider_types import Provider
+from mcp_agent.llm.augmented_llm import RequestParams
+from mcp.types import TextContent
+
+class DummyLogger:
+    enable_markup = True
+
+class DummyAzureConfig:
+    api_key = "test-key"
+    resource_name = "test-resource"
+    azure_deployment = "test-deployment"
+    api_version = "2023-05-15"
+    base_url = None
+
+class DummyConfig:
+    azure = DummyAzureConfig()
+    logger = DummyLogger()
+
+class DummyContext:
+    config = DummyConfig()
+    executor = None
+
+@pytest.mark.asyncio
+async def test_azure_llm_chat_completion(monkeypatch):
+    # Patch the AsyncAzureOpenAI client method on the instance (async monkey-patch)
+    async def fake_create(model, messages, **kw):
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(
+            message=types.SimpleNamespace(content="pong")
+        )])
+    # Instantiate the provider
+    llm = AzureOpenAIAugmentedLLM(
+        provider=Provider.AZURE,
+        context=DummyContext(),
+        model="test-deployment"
+    )
+    # Patch the instance's async client method
+    llm.client.chat.completions.create = fake_create
+
+    # Prepare a minimal prompt
+    messages = [{"role": "user", "content": "ping"}]
+    params = RequestParams()
+    response = await llm._chat_completion(messages, params)
+    assert response.choices[0].message.content == "pong"
+
+    # Test the provider returns the expected assistant message
+    from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+    user_msg = PromptMessageMultipart(role="user", content=[TextContent(type="text", text="ping")])
+    result = await llm._apply_prompt_provider_specific([user_msg], params)
+    assert result.last_text() == "pong"
+    assert result.role == "assistant"
+
+@pytest.mark.asyncio
+async def test_azure_llm_empty_choices_returns_empty_guard(monkeypatch):
+    # Patch the AsyncAzureOpenAI client method to return no choices
+    async def fake_create(model, messages, **kw):
+        return types.SimpleNamespace(choices=[])
+    llm = AzureOpenAIAugmentedLLM(
+        provider=Provider.AZURE,
+        context=DummyContext(),
+        model="test-deployment"
+    )
+    llm.client.chat.completions.create = fake_create
+
+    from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+    user_msg = PromptMessageMultipart(role="user", content=[TextContent(type="text", text="ping")])
+    params = RequestParams()
+    result = await llm._apply_prompt_provider_specific([user_msg], params)
+    assert result.last_text() == "[empty]"
+    assert result.role == "assistant"
+
+@pytest.mark.asyncio
+async def test_azure_llm_choice_content_none_returns_empty_string(monkeypatch):
+    # Patch the AsyncAzureOpenAI client method to return a choice with content=None
+    async def fake_create(model, messages, **kw):
+        return types.SimpleNamespace(choices=[types.SimpleNamespace(
+            message=types.SimpleNamespace(content=None)
+        )])
+    llm = AzureOpenAIAugmentedLLM(
+        provider=Provider.AZURE,
+        context=DummyContext(),
+        model="test-deployment"
+    )
+    llm.client.chat.completions.create = fake_create
+
+    from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+    user_msg = PromptMessageMultipart(role="user", content=[TextContent(type="text", text="ping")])
+    params = RequestParams()
+    result = await llm._apply_prompt_provider_specific([user_msg], params)
+    assert result.last_text() == ""
+    assert result.role == "assistant"
