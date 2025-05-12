@@ -28,8 +28,8 @@ dependencies = [
     "prompt-toolkit>=3.0.50",
     "aiohttp>=3.11.13",
     "a2a-types>=0.1.0",
-    "opentelemetry-instrumentation-openai>=0.39.3",
-    "opentelemetry-instrumentation-anthropic>=0.39.3",
+    "opentelemetry-instrumentation-openai>=0.39.3; python_version >= '3.10' and python_version < '4.0'",
+    "opentelemetry-instrumentation-anthropic>=0.39.3; python_version >= '3.10' and python_version < '4.0'",
     "tensorzero>=2025.4.7",
 ]
 
@@ -55,6 +55,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_agent"]
+
+[[tool.poetry.packages]]
+include = "mcp_agent"
+from = "src"
 
 [tool.hatch.build]
 include = [
