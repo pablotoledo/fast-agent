@@ -1,15 +1,15 @@
 import types
-import pytest
-import asyncio
 
-from mcp_agent.llm.providers.augmented_llm_azure import AzureOpenAIAugmentedLLM
-from mcp_agent.llm.provider_types import Provider
+import pytest
+
 from mcp_agent.llm.augmented_llm import RequestParams
-from mcp_agent.core.agent_app import AgentApp
-from mcp_agent.core.prompt import Prompt
+from mcp_agent.llm.provider_types import Provider
+from mcp_agent.llm.providers.augmented_llm_azure import AzureOpenAIAugmentedLLM
+
 
 class DummyLogger:
     enable_markup = True
+
 
 class DummyAzureConfig:
     api_key = "test-key"
@@ -18,27 +18,28 @@ class DummyAzureConfig:
     api_version = "2023-05-15"
     base_url = None
 
+
 class DummyConfig:
     azure = DummyAzureConfig()
     logger = DummyLogger()
+
 
 class DummyContext:
     config = DummyConfig()
     executor = None
 
+
 @pytest.mark.asyncio
 async def test_agent_returns_llm_response(monkeypatch):
     # Patch the AzureOpenAI client method on the instance (sync monkey-patch)
     def fake_create(model, messages, **kw):
-        return types.SimpleNamespace(choices=[types.SimpleNamespace(
-            message=types.SimpleNamespace(content="pong")
-        )])
+        return types.SimpleNamespace(
+            choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="pong"))]
+        )
 
     # Instantiate the provider and patch the client
     llm = AzureOpenAIAugmentedLLM(
-        provider=Provider.AZURE,
-        context=DummyContext(),
-        model="test-deployment"
+        provider=Provider.AZURE, context=DummyContext(), model="test-deployment"
     )
     monkeypatch.setattr(llm.client.chat.completions, "create", fake_create)
 
@@ -50,8 +51,9 @@ async def test_agent_returns_llm_response(monkeypatch):
     assert response.choices[0].message.content == "pong"
 
     # Simulate the higher-level agent returning the LLM result to the user
-    from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
     from mcp.types import TextContent
+
+    from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
 
     user_msg = PromptMessageMultipart(role="user", content=[TextContent(type="text", text="hola")])
     result = await llm._apply_prompt_provider_specific([user_msg], params)

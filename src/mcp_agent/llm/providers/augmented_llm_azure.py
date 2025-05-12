@@ -1,6 +1,16 @@
 import asyncio
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from urllib.parse import urlparse
+
+from openai import AzureOpenAI
+
+from mcp_agent.core.exceptions import ProviderKeyError
+from mcp_agent.core.prompt import Prompt
+from mcp_agent.llm.augmented_llm import AugmentedLLM, RequestParams
+from mcp_agent.llm.provider_types import Provider
+from mcp_agent.logging.logger import get_logger
+from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+
 
 def _extract_resource_name(url: str) -> str | None:
     """
@@ -11,24 +21,14 @@ def _extract_resource_name(url: str) -> str | None:
     suffix = ".openai.azure.com"
     return host.replace(suffix, "") if host.endswith(suffix) else None
 
-import asyncio
-from openai import AzureOpenAI
-from mcp_agent.llm.augmented_llm import AugmentedLLM, RequestParams
-from mcp_agent.llm.provider_types import Provider
-from mcp_agent.core.exceptions import ProviderKeyError
-from mcp_agent.core.prompt import Prompt
-from mcp_agent.logging.logger import get_logger
-from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
 
 DEFAULT_AZURE_API_VERSION = "2023-05-15"
 
+
 def _multipart_to_openai(msg):
-    parts = [
-        c.text
-        for c in getattr(msg, "content", [])
-        if getattr(c, "type", "text") == "text"
-    ]
+    parts = [c.text for c in getattr(msg, "content", []) if getattr(c, "type", "text") == "text"]
     return {"role": msg.role, "content": "".join(parts)}
+
 
 class AzureOpenAIAugmentedLLM(AugmentedLLM):
     """
@@ -55,7 +55,7 @@ class AzureOpenAIAugmentedLLM(AugmentedLLM):
         if azure_cfg is None:
             raise ProviderKeyError(
                 "Missing Azure configuration",
-                "Azure provider requires configuration section 'azure' in your config file."
+                "Azure provider requires configuration section 'azure' in your config file.",
             )
 
         # Set up Azure OpenAI parameters
@@ -67,26 +67,22 @@ class AzureOpenAIAugmentedLLM(AugmentedLLM):
         # Validaciones flexibles
         if not self.api_key:
             raise ProviderKeyError(
-                "Missing Azure OpenAI credentials",
-                "Field 'api_key' is required in azure config."
+                "Missing Azure OpenAI credentials", "Field 'api_key' is required in azure config."
             )
 
         if not (self.resource_name or azure_cfg.base_url):
             raise ProviderKeyError(
                 "Missing Azure endpoint",
-                "Provide either 'resource_name' or 'base_url' under azure config."
+                "Provide either 'resource_name' or 'base_url' under azure config.",
             )
 
         if not self.deployment_name:
             raise ProviderKeyError(
                 "Missing deployment name",
-                "Set 'azure_deployment' in config or pass model=<deployment>."
+                "Set 'azure_deployment' in config or pass model=<deployment>.",
             )
 
-        self.base_url = (
-            azure_cfg.base_url
-            or f"https://{self.resource_name}.openai.azure.com/"
-        )
+        self.base_url = azure_cfg.base_url or f"https://{self.resource_name}.openai.azure.com/"
         # Si resource_name faltaba intenta extraerlo de base_url
         if not self.resource_name and azure_cfg.base_url:
             self.resource_name = _extract_resource_name(azure_cfg.base_url)
@@ -137,10 +133,7 @@ class AzureOpenAIAugmentedLLM(AugmentedLLM):
             self.logger.debug(f"Azure response: {response}")
         except Exception as e:
             self.logger.error(f"Azure OpenAI API error: {e}")
-            raise ProviderKeyError(
-                "Azure OpenAI API error",
-                f"Error from Azure OpenAI: {e}"
-            ) from e
+            raise ProviderKeyError("Azure OpenAI API error", f"Error from Azure OpenAI: {e}") from e
 
         return response
 
