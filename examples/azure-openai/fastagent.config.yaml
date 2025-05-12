@@ -1,0 +1,10 @@
+default_model: "azure.my-deployment"
+
+azure:
+  api_key: "YOUR_AZURE_OPENAI_API_KEY"
+  resource_name: "your-resource-name"
+  azure_deployment: "my-deployment"
+  api_version: "2023-05-15"
+  # base_url: "https://your-resource-name.openai.azure.com/"  # Optional, will be constructed if omitted
+
+# Optionally, you can add other providers or settings as needed.
