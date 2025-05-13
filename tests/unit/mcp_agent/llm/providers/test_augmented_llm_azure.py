@@ -19,17 +19,18 @@ class DummyAzureConfig:
         self.azure_deployment = "test-deployment"
         self.api_version = "2023-05-15"
         self.base_url = None
+        self.use_default_azure_credential = False
 
 
 class DummyConfig:
-    def __init__(self):
-        self.azure = DummyAzureConfig()
+    def __init__(self, azure_cfg=None):
+        self.azure = azure_cfg or DummyAzureConfig()
         self.logger = DummyLogger()
 
 
 class DummyContext:
-    def __init__(self):
-        self.config = DummyConfig()
+    def __init__(self, azure_cfg=None):
+        self.config = DummyConfig(azure_cfg=azure_cfg)
         self.executor = None
 
 
@@ -47,6 +48,72 @@ def test_init_with_base_url_only():
     assert llm.base_url.startswith("https://mydemo.openai.azure.com")
     assert llm.resource_name == "mydemo"
 
+
+@pytest.mark.asyncio
+async def test_init_with_default_azure_credential(monkeypatch):
+    """
+    Test AzureOpenAIAugmentedLLM with use_default_azure_credential: True.
+    Mocks DefaultAzureCredential and AzureOpenAI to ensure correct integration.
+    """
+    # Dummy token and credential
+    class DummyToken:
+        def __init__(self, token):
+            self.token = token
+
+    class DummyCredential:
+        def get_token(self, scope):
+            assert scope == "https://cognitiveservices.azure.com/.default"
+            return DummyToken("dummy-token")
+
+    # Patch DefaultAzureCredential to return DummyCredential
+    import sys
+    import mcp_agent.llm.providers.augmented_llm_azure as azure_mod
+    monkeypatch.setattr(azure_mod, "DefaultAzureCredential", DummyCredential)
+
+    # Patch AzureOpenAI to check for azure_ad_token_provider and simulate response
+    class DummyAzureOpenAI:
+        def __init__(self, **kwargs):
+            assert "azure_ad_token_provider" in kwargs
+            self.token_provider = kwargs["azure_ad_token_provider"]
+            self.chat = types.SimpleNamespace(
+                completions=types.SimpleNamespace(
+                    create=lambda **kw: types.SimpleNamespace(
+                        choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="tokenpong"))]
+                    )
+                )
+            )
+
+    monkeypatch.setattr(azure_mod, "AzureOpenAI", DummyAzureOpenAI)
+
+    # Prepare config for DefaultAzureCredential
+    class DACfg:
+        def __init__(self):
+            self.api_key = None
+            self.resource_name = None
+            self.azure_deployment = "test-deployment"
+            self.api_version = "2023-05-15"
+            self.base_url = "https://mydemo.openai.azure.com/"
+            self.use_default_azure_credential = True
+
+    dacfg = DACfg()
+    ctx = DummyContext(azure_cfg=dacfg)
+    llm = AzureOpenAIAugmentedLLM(context=ctx)
+
+    # The token provider should return the dummy token
+    assert llm.client.token_provider() == "dummy-token"
+
+    # Test chat completion
+    messages = [{"role": "user", "content": "ping"}]
+    params = RequestParams()
+    response = await llm._chat_completion(messages, params)
+    assert response.choices[0].message.content == "tokenpong"
+
+    # Test the provider returns the expected assistant message
+    from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
+    user_msg = PromptMessageMultipart(role="user", content=[TextContent(type="text", text="ping")])
+    result = await llm._apply_prompt_provider_specific([user_msg], params)
+    assert result.last_text() == "tokenpong"
+    assert result.role == "assistant"
 
 @pytest.mark.asyncio
 async def test_azure_llm_chat_completion(monkeypatch):

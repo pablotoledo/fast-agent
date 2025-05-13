@@ -6,6 +6,11 @@ from openai import AzureOpenAI
 
 from mcp_agent.core.exceptions import ProviderKeyError
 from mcp_agent.core.prompt import Prompt
+
+try:
+    from azure.identity import DefaultAzureCredential
+except ImportError:
+    DefaultAzureCredential = None
 from mcp_agent.llm.augmented_llm import AugmentedLLM, RequestParams
 from mcp_agent.llm.provider_types import Provider
 from mcp_agent.logging.logger import get_logger
@@ -58,46 +63,71 @@ class AzureOpenAIAugmentedLLM(AugmentedLLM):
                 "Azure provider requires configuration section 'azure' in your config file.",
             )
 
-        # Set up Azure OpenAI parameters
-        self.api_key = azure_cfg.api_key
-        self.resource_name = azure_cfg.resource_name
+        # --- Retrocompatible Auth: API Key o DefaultAzureCredential ---
+        use_default_cred = getattr(azure_cfg, "use_default_azure_credential", False)
         self.deployment_name = kwargs.get("model") or azure_cfg.azure_deployment
         self.api_version = azure_cfg.api_version or DEFAULT_AZURE_API_VERSION
 
-        # Validaciones flexibles
-        if not self.api_key:
-            raise ProviderKeyError(
-                "Missing Azure OpenAI credentials", "Field 'api_key' is required in azure config."
+        if use_default_cred:
+            # Modo DefaultAzureCredential
+            if not azure_cfg.base_url:
+                raise ProviderKeyError(
+                    "Missing Azure endpoint",
+                    "When using 'use_default_azure_credential', 'base_url' is required in azure config.",
+                )
+            if DefaultAzureCredential is None:
+                raise ProviderKeyError(
+                    "azure-identity not installed",
+                    "You must install 'azure-identity' to use DefaultAzureCredential authentication.",
+                )
+            self.base_url = azure_cfg.base_url
+            self.api_key = None  # No usar api_key
+            self.resource_name = None
+            # Token provider callable
+            credential = DefaultAzureCredential()
+            def get_azure_token():
+                token = credential.get_token("https://cognitiveservices.azure.com/.default")
+                return token.token
+            self.logger.info(
+                f"AzureOpenAI endpoint: {self.base_url} — deployment: {self.deployment_name} (DefaultAzureCredential)"
             )
-
-        if not (self.resource_name or azure_cfg.base_url):
-            raise ProviderKeyError(
-                "Missing Azure endpoint",
-                "Provide either 'resource_name' or 'base_url' under azure config.",
+            self.client = AzureOpenAI(
+                azure_ad_token_provider=get_azure_token,
+                azure_endpoint=self.base_url,
+                api_version=self.api_version,
+                azure_deployment=self.deployment_name,
             )
-
-        if not self.deployment_name:
-            raise ProviderKeyError(
-                "Missing deployment name",
-                "Set 'azure_deployment' in config or pass model=<deployment>.",
+        else:
+            # Modo API Key (actual)
+            self.api_key = azure_cfg.api_key
+            self.resource_name = azure_cfg.resource_name
+            if not self.api_key:
+                raise ProviderKeyError(
+                    "Missing Azure OpenAI credentials", "Field 'api_key' is required in azure config."
+                )
+            if not (self.resource_name or azure_cfg.base_url):
+                raise ProviderKeyError(
+                    "Missing Azure endpoint",
+                    "Provide either 'resource_name' or 'base_url' under azure config.",
+                )
+            if not self.deployment_name:
+                raise ProviderKeyError(
+                    "Missing deployment name",
+                    "Set 'azure_deployment' in config or pass model=<deployment>.",
+                )
+            self.base_url = azure_cfg.base_url or f"https://{self.resource_name}.openai.azure.com/"
+            # Si resource_name faltaba intenta extraerlo de base_url
+            if not self.resource_name and azure_cfg.base_url:
+                self.resource_name = _extract_resource_name(azure_cfg.base_url)
+            self.logger.info(
+                f"AzureOpenAI endpoint: {self.base_url} — deployment: {self.deployment_name}"
             )
-
-        self.base_url = azure_cfg.base_url or f"https://{self.resource_name}.openai.azure.com/"
-        # Si resource_name faltaba intenta extraerlo de base_url
-        if not self.resource_name and azure_cfg.base_url:
-            self.resource_name = _extract_resource_name(azure_cfg.base_url)
-
-        self.logger.info(
-            f"AzureOpenAI endpoint: {self.base_url} — deployment: {self.deployment_name}"
-        )
-
-        # Set up AzureOpenAI client (per-instance, no global state)
-        self.client = AzureOpenAI(
-            api_key=self.api_key,
-            azure_endpoint=self.base_url,
-            api_version=self.api_version,
-            azure_deployment=self.deployment_name,
-        )
+            self.client = AzureOpenAI(
+                api_key=self.api_key,
+                azure_endpoint=self.base_url,
+                api_version=self.api_version,
+                azure_deployment=self.deployment_name,
+            )
 
         # Set type_converter if needed (optional, for compatibility)
         if "type_converter" not in kwargs:
