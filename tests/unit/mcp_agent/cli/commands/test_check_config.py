@@ -13,7 +13,7 @@ def test_check_api_keys_only_api_key():
         "api_version": "2023-05-15",
     }
     summary = make_secrets_summary(azure_cfg)
-    results = check_api_keys(summary)
+    results = check_api_keys(summary, {})
     assert results["azure"]["config"] == "...e-key"
 
 
@@ -25,7 +25,7 @@ def test_check_api_keys_only_default_cred():
         "api_version": "2023-05-15",
     }
     summary = make_secrets_summary(azure_cfg)
-    results = check_api_keys(summary)
+    results = check_api_keys(summary, {})
     assert results["azure"]["config"] == "DefaultAzureCredential"
 
 
@@ -38,7 +38,7 @@ def test_check_api_keys_both_modes():
         "api_version": "2023-05-15",
     }
     summary = make_secrets_summary(azure_cfg)
-    results = check_api_keys(summary)
+    results = check_api_keys(summary, {})
     assert "DefaultAzureCredential" in results["azure"]["config"]
     assert "api_key" in results["azure"]["config"]
 
@@ -51,7 +51,7 @@ def test_check_api_keys_invalid_config():
         "api_version": "2023-05-15",
     }
     summary = make_secrets_summary(azure_cfg)
-    results = check_api_keys(summary)
+    results = check_api_keys(summary, {})
     # Should not mark as DefaultAzureCredential if base_url missing
     assert results["azure"]["config"] == ""
 
@@ -64,6 +64,6 @@ def test_check_api_keys_hint_text():
         "api_version": "2023-05-15",
     }
     summary = make_secrets_summary(azure_cfg)
-    results = check_api_keys(summary)
+    results = check_api_keys(summary, {})
     # Should not show API_KEY_HINT_TEXT as a valid key
     assert results["azure"]["config"] == ""

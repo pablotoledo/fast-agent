@@ -1,3 +1,7 @@
+# NOTE: Since version X.X, the Azure OpenAI integration in FastAgent reuses the OpenAI logic.
+# Authentication (API Key or DefaultAzureCredential) and connectivity are managed automatically.
+# You only need to configure the 'azure' section as indicated below; the system will select the appropriate method.
+#
 # Example configuration for Azure OpenAI in fast-agent
 #
 # There are three supported authentication/configuration modes for Azure OpenAI:
