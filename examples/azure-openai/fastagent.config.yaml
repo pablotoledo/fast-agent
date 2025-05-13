@@ -1,3 +1,13 @@
+# Example configuration for Azure OpenAI in fast-agent
+#
+# Use ONLY one of the parameters: 'resource_name' or 'base_url'.
+# - If you define 'base_url', it will be used directly as the endpoint and 'resource_name' will be ignored.
+# - If you define 'resource_name' (and not 'base_url'), the endpoint will be constructed automatically.
+# - If both are missing, the configuration is invalid.
+#
+# Do not include both at the same time.
+
+# --- OPTION 1: Using resource_name (recommended for standard Azure) ---
 default_model: "azure.my-deployment"
 
 azure:
@@ -5,6 +15,16 @@ azure:
   resource_name: "your-resource-name"
   azure_deployment: "my-deployment"
   api_version: "2023-05-15"
-  # base_url: "https://your-resource-name.openai.azure.com/"  # Optional, will be constructed if omitted
+  # Do not include base_url if you use resource_name
 
-# Optionally, you can add other providers or settings as needed.
+# --- OPTION 2: Using base_url (for custom endpoints or sovereign clouds) ---
+# default_model: "azure.my-deployment"
+#
+# azure:
+#   api_key: "YOUR_AZURE_OPENAI_API_KEY"
+#   base_url: "https://your-resource-name.openai.azure.com/"
+#   azure_deployment: "my-deployment"
+#   api_version: "2023-05-15"
+#   # Do not include resource_name if you use base_url
+
+# You can add other providers or settings as needed.
