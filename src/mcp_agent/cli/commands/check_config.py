@@ -93,12 +93,12 @@ def get_secrets_summary(secrets_path: Optional[Path]) -> dict:
 
 
 def check_api_keys(secrets_summary: dict) -> dict:
-    """Check if API keys are configured in secrets file or environment."""
+    """Check if API keys are configured in secrets file or environment, including Azure DefaultAzureCredential."""
     import os
 
     # Initialize results dict using Provider enum values
     results = {
-        provider.value: {"env": None, "config": None}
+        provider.value: {"env": "", "config": ""}
         for provider in Provider
         if provider != Provider.FAST_AGENT
     }  # Include GENERIC but exclude FAST_AGENT
@@ -109,25 +109,47 @@ def check_api_keys(secrets_summary: dict) -> dict:
 
     # Check both environment variables and config file for each provider
     for provider_value in results:
-        # Check environment variables using ProviderKeyManager
-        env_key_name = ProviderKeyManager.get_env_key_name(provider_value)
-        env_key_value = os.environ.get(env_key_name)
-        if env_key_value:
-            # Store the last 5 characters if key is long enough
-            if len(env_key_value) > 5:
-                results[provider_value]["env"] = f"...{env_key_value[-5:]}"
-            else:
-                results[provider_value]["env"] = "...***"
-
-        # Check secrets file if it was parsed successfully
-        if secrets_status == "parsed":
-            config_key = ProviderKeyManager.get_config_file_key(provider_value, secrets)
-            if config_key and config_key != API_KEY_HINT_TEXT:
-                # Store the last 5 characters if key is long enough
-                if len(config_key) > 5:
-                    results[provider_value]["config"] = f"...{config_key[-5:]}"
+        # Special handling for Azure: support api_key and DefaultAzureCredential
+        if provider_value == "azure" and secrets_status == "parsed":
+            azure_cfg = secrets.get("azure", {})
+            use_default_cred = azure_cfg.get("use_default_azure_credential", False)
+            base_url = azure_cfg.get("base_url")
+            api_key = azure_cfg.get("api_key")
+            # DefaultAzureCredential mode
+            if use_default_cred and base_url:
+                results[provider_value]["config"] = "DefaultAzureCredential"
+            # API key mode (retrocompatible)
+            if api_key and api_key != API_KEY_HINT_TEXT:
+                if len(api_key) > 5:
+                    if results[provider_value]["config"]:
+                        results[provider_value]["config"] += " + api_key"
+                    else:
+                        results[provider_value]["config"] = f"...{api_key[-5:]}"
                 else:
-                    results[provider_value]["config"] = "...***"
+                    if results[provider_value]["config"]:
+                        results[provider_value]["config"] += " + api_key"
+                    else:
+                        results[provider_value]["config"] = "...***"
+        else:
+            # Check environment variables using ProviderKeyManager
+            env_key_name = ProviderKeyManager.get_env_key_name(provider_value)
+            env_key_value = os.environ.get(env_key_name)
+            if env_key_value:
+                # Store the last 5 characters if key is long enough
+                if len(env_key_value) > 5:
+                    results[provider_value]["env"] = f"...{env_key_value[-5:]}"
+                else:
+                    results[provider_value]["env"] = "...***"
+
+            # Check secrets file if it was parsed successfully
+            if secrets_status == "parsed":
+                config_key = ProviderKeyManager.get_config_file_key(provider_value, secrets)
+                if config_key and config_key != API_KEY_HINT_TEXT:
+                    # Store the last 5 characters if key is long enough
+                    if len(config_key) > 5:
+                        results[provider_value]["config"] = f"...{config_key[-5:]}"
+                    else:
+                        results[provider_value]["config"] = "...***"
 
     return results
 
