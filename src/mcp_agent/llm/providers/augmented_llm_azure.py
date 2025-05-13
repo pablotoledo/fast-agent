@@ -85,9 +85,11 @@ class AzureOpenAIAugmentedLLM(AugmentedLLM):
             self.resource_name = None
             # Token provider callable
             credential = DefaultAzureCredential()
+
             def get_azure_token():
                 token = credential.get_token("https://cognitiveservices.azure.com/.default")
                 return token.token
+
             self.logger.info(
                 f"AzureOpenAI endpoint: {self.base_url} — deployment: {self.deployment_name} (DefaultAzureCredential)"
             )
@@ -103,7 +105,8 @@ class AzureOpenAIAugmentedLLM(AugmentedLLM):
             self.resource_name = azure_cfg.resource_name
             if not self.api_key:
                 raise ProviderKeyError(
-                    "Missing Azure OpenAI credentials", "Field 'api_key' is required in azure config."
+                    "Missing Azure OpenAI credentials",
+                    "Field 'api_key' is required in azure config.",
                 )
             if not (self.resource_name or azure_cfg.base_url):
                 raise ProviderKeyError(

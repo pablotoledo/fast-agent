@@ -35,6 +35,7 @@ async def test_agent_returns_llm_response_default_azure_credential(monkeypatch):
     Integration test for AzureOpenAIAugmentedLLM with use_default_azure_credential: True.
     Mocks DefaultAzureCredential and AzureOpenAI to ensure correct integration.
     """
+
     # Dummy token and credential
     class DummyToken:
         def __init__(self, token):
@@ -47,6 +48,7 @@ async def test_agent_returns_llm_response_default_azure_credential(monkeypatch):
 
     # Patch DefaultAzureCredential to return DummyCredential
     import mcp_agent.llm.providers.augmented_llm_azure as azure_mod
+
     monkeypatch.setattr(azure_mod, "DefaultAzureCredential", DummyCredential)
 
     # Patch AzureOpenAI to check for azure_ad_token_provider and simulate response
@@ -57,7 +59,11 @@ async def test_agent_returns_llm_response_default_azure_credential(monkeypatch):
             self.chat = types.SimpleNamespace(
                 completions=types.SimpleNamespace(
                     create=lambda **kw: types.SimpleNamespace(
-                        choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="tokenpong"))]
+                        choices=[
+                            types.SimpleNamespace(
+                                message=types.SimpleNamespace(content="tokenpong")
+                            )
+                        ]
                     )
                 )
             )
@@ -103,6 +109,7 @@ async def test_agent_returns_llm_response_default_azure_credential(monkeypatch):
     result = await llm._apply_prompt_provider_specific([user_msg], params)
     assert result.last_text() == "tokenpong"
     assert result.role == "assistant"
+
 
 @pytest.mark.asyncio
 async def test_agent_returns_llm_response(monkeypatch):
