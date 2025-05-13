@@ -364,7 +364,7 @@ def show_check_summary() -> None:
         keys_table.add_row(provider.capitalize(), env_status, config_status, active)
 
     console.print(Panel(keys_table, title="API Keys", border_style="blue"))
-    
+
     # MCP Servers panel (shown after API Keys)
     if config_summary.get("status") == "parsed":
         mcp_servers = config_summary.get("mcp_servers", [])
