@@ -414,7 +414,7 @@ wheels = [
 
 [[package]]
 name = "fast-agent-mcp"
-version = "0.2.23"
+version = "0.2.24"
 source = { editable = "." }
 dependencies = [
     { name = "a2a-types" },
@@ -426,6 +426,7 @@ dependencies = [
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-instrumentation-anthropic" },
+    { name = "opentelemetry-instrumentation-mcp" },
     { name = "opentelemetry-instrumentation-openai" },
     { name = "prompt-toolkit" },
     { name = "pydantic" },
@@ -479,6 +480,7 @@ requires-dist = [
     { name = "opentelemetry-distro", specifier = ">=0.50b0" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.29.0" },
     { name = "opentelemetry-instrumentation-anthropic", specifier = ">=0.39.3" },
+    { name = "opentelemetry-instrumentation-mcp", specifier = ">=0.40.3" },
     { name = "opentelemetry-instrumentation-openai", specifier = ">=0.39.3" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.1" },
     { name = "prompt-toolkit", specifier = ">=3.0.50" },
@@ -1137,6 +1139,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1f/14/7920886f4773543c29d542320c6f05818c0a4caaf7e697adf584d124b2b2/opentelemetry_instrumentation_anthropic-0.40.3.tar.gz", hash = "sha256:5e40a9d3342d800180d29e028f3d1aa5db3e0ec482362a7eef054ee500fb8d4f", size = 8968 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/41/d7/e2b72986563df5d5e4f699e1414b3348cb02150f769a13f55d635dfa9f65/opentelemetry_instrumentation_anthropic-0.40.3-py3-none-any.whl", hash = "sha256:152a7968d86ade48ffb4df526129def598e8e3eeb1c4fb11a5e6a3bbc94c0fd4", size = 11505 },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-mcp"
+version = "0.40.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "opentelemetry-semantic-conventions-ai" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b9/68/c2022bc3d71082ba9ea37b0c2be2cfff4166a25897e15e58c26058df9b8e/opentelemetry_instrumentation_mcp-0.40.3.tar.gz", hash = "sha256:07cc99f7e4b9c28949ac4643c0fb7f7c465c47306c1623822b5d8af4156ff5ed", size = 4207 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ef/5e/4938160125c1116f0d46b18a20474349796510fd3324346fee8a7a706f53/opentelemetry_instrumentation_mcp-0.40.3-py3-none-any.whl", hash = "sha256:2ab0e5f244359d6b57b7bbb06ae0cd82b340c606a44c660577f91a81474892aa", size = 5441 },
 ]
 
 [[package]]
