@@ -163,6 +163,11 @@ class AzureOpenAIAugmentedLLM(AugmentedLLM):
                 self.client.chat.completions.create,
                 **kwargs,
             )
+            await self.show_assistant_message(
+                message_text=response.choices[0].message.content or ""
+            )
+            ##
+
             self.logger.debug(f"Azure response: {response}")
         except Exception as e:
             self.logger.error(f"Azure OpenAI API error: {e}")

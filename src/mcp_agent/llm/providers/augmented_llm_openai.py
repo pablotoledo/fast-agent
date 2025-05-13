@@ -274,7 +274,9 @@ class OpenAIAugmentedLLM(AugmentedLLM[ChatCompletionMessageParam, ChatCompletion
             # Calculate new conversation messages (excluding prompts)
             new_messages = messages[len(prompt_messages) :]
 
-            # Update conversation history
+            if system_prompt:
+                new_messages = new_messages[1:]
+
             self.history.set(new_messages)
 
         self._log_chat_finished(model=self.default_request_params.model)
