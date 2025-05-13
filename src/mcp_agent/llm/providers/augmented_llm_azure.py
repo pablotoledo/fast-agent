@@ -19,8 +19,8 @@ from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
 
 def _extract_resource_name(url: str) -> str | None:
     """
-    Dada una URL https://<resource>.openai.azure.com/...
-    devuelve '<resource>' o None si no encaja.
+    Given a URL https://<resource>.openai.azure.com/...
+    returns '<resource>' or None if it doesn't match.
     """
     host = urlparse(url).hostname or ""
     suffix = ".openai.azure.com"
