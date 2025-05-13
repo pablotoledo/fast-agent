@@ -1,20 +1,25 @@
-from openai import AzureOpenAI, AuthenticationError, OpenAI
-from mcp_agent.llm.providers.augmented_llm_openai import OpenAIAugmentedLLM
+from openai import AuthenticationError, AzureOpenAI, OpenAI
+
 from mcp_agent.core.exceptions import ProviderKeyError
 from mcp_agent.llm.provider_types import Provider
+from mcp_agent.llm.providers.augmented_llm_openai import OpenAIAugmentedLLM
 
 try:
     from azure.identity import DefaultAzureCredential
 except ImportError:
     DefaultAzureCredential = None
 
+
 def _extract_resource_name(url: str) -> str | None:
     from urllib.parse import urlparse
+
     host = urlparse(url).hostname or ""
     suffix = ".openai.azure.com"
     return host.replace(suffix, "") if host.endswith(suffix) else None
 
+
 DEFAULT_AZURE_API_VERSION = "2023-05-15"
+
 
 class AzureOpenAIAugmentedLLM(OpenAIAugmentedLLM):
     """
@@ -43,7 +48,9 @@ class AzureOpenAIAugmentedLLM(OpenAIAugmentedLLM):
 
         use_default_cred = getattr(azure_cfg, "use_default_azure_credential", False)
         deployment_name = getattr(self, "default_request_params", None)
-        deployment_name = getattr(deployment_name, "model", None) or getattr(azure_cfg, "azure_deployment", None)
+        deployment_name = getattr(deployment_name, "model", None) or getattr(
+            azure_cfg, "azure_deployment", None
+        )
         api_version = getattr(azure_cfg, "api_version", None) or DEFAULT_AZURE_API_VERSION
 
         if use_default_cred:
@@ -59,9 +66,11 @@ class AzureOpenAIAugmentedLLM(OpenAIAugmentedLLM):
                     "You must install 'azure-identity' to use DefaultAzureCredential authentication.",
                 )
             credential = DefaultAzureCredential()
+
             def get_azure_token():
                 token = credential.get_token("https://cognitiveservices.azure.com/.default")
                 return token.token
+
             try:
                 return AzureOpenAI(
                     azure_ad_token_provider=get_azure_token,
@@ -78,7 +87,9 @@ class AzureOpenAIAugmentedLLM(OpenAIAugmentedLLM):
         else:
             api_key = getattr(azure_cfg, "api_key", None)
             resource_name = getattr(azure_cfg, "resource_name", None)
-            base_url = getattr(azure_cfg, "base_url", None) or (f"https://{resource_name}.openai.azure.com/" if resource_name else None)
+            base_url = getattr(azure_cfg, "base_url", None) or (
+                f"https://{resource_name}.openai.azure.com/" if resource_name else None
+            )
             if not api_key:
                 raise ProviderKeyError(
                     "Missing Azure OpenAI credentials",

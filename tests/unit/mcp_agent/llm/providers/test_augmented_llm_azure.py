@@ -1,12 +1,14 @@
 import types
+from typing import Optional
+
 import pytest
-from mcp_agent.llm.provider_types import Provider
+
 from mcp_agent.llm.providers.augmented_llm_azure import AzureOpenAIAugmentedLLM
+
 
 class DummyLogger:
     enable_markup = True
 
-from typing import Optional
 
 class DummyAzureConfig:
     def __init__(self):
@@ -17,16 +19,19 @@ class DummyAzureConfig:
         self.base_url: Optional[str] = None
         self.use_default_azure_credential: bool = False
 
+
 class DummyConfig:
     def __init__(self, azure_cfg=None):
         self.azure = azure_cfg or DummyAzureConfig()
         self.logger = DummyLogger()
         self.openai = None  # For compatibility with OpenAIAugmentedLLM
 
+
 class DummyContext:
     def __init__(self, azure_cfg=None):
         self.config = DummyConfig(azure_cfg=azure_cfg)
         self.executor = None
+
 
 def test_openai_client_with_base_url_only():
     cfg = DummyAzureConfig()
@@ -38,12 +43,14 @@ def test_openai_client_with_base_url_only():
     assert hasattr(client, "chat")
     # Should be AzureOpenAI instance
 
+
 @pytest.mark.asyncio
 async def test_openai_client_with_default_azure_credential(monkeypatch):
     """
     Test AzureOpenAIAugmentedLLM with use_default_azure_credential: True.
     Mocks DefaultAzureCredential and AzureOpenAI to ensure correct integration.
     """
+
     class DummyToken:
         def __init__(self, token):
             self.token = token
@@ -54,6 +61,7 @@ async def test_openai_client_with_default_azure_credential(monkeypatch):
             return DummyToken("dummy-token")
 
     import mcp_agent.llm.providers.augmented_llm_azure as azure_mod
+
     monkeypatch.setattr(azure_mod, "DefaultAzureCredential", DummyCredential)
 
     class DummyAzureOpenAI:

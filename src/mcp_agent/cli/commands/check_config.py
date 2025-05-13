@@ -373,12 +373,7 @@ def show_check_summary() -> None:
         keys_table.add_row(provider.capitalize(), env_status, config_status, active)
 
     # Print the API Keys panel (fix: this was missing)
-    keys_panel = Panel(
-        keys_table,
-        title="API Keys",
-        border_style="blue",
-        subtitle_align="left"
-    )
+    keys_panel = Panel(keys_table, title="API Keys", border_style="blue", subtitle_align="left")
     console.print(keys_panel)
 
     # MCP Servers panel (shown after API Keys)
