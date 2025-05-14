@@ -95,5 +95,5 @@ async def test_openai_client_with_default_azure_credential(monkeypatch):
     ctx = DummyContext(azure_cfg=dacfg)
     llm = AzureOpenAIAugmentedLLM(context=ctx)
     client = llm._openai_client()
-    # Solo comprobamos que el cliente se crea y tiene chat
+    # Just checking that the client is created and has chat
     assert hasattr(client, "chat")
