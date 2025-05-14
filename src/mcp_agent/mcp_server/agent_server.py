@@ -67,19 +67,26 @@ class AgentMCPServer:
             description=f"Send a message to the {agent_name} agent",
         )
         async def send_message(message: str, ctx: MCPContext) -> str:
-            """Send a message to the agent and return its response."""
-            # Get the agent's context
-            agent_context = getattr(agent, "context", None)
+            """
+            Send a message to the agent and return its response.
+            Any exception is caught and returned as a controlled error string.
+            """
+            try:
+                # Get the agent's context
+                agent_context = getattr(agent, "context", None)
 
-            # Define the function to execute
-            async def execute_send():
-                return await agent.send(message)
+                # Define the function to execute
+                async def execute_send():
+                    return await agent.send(message)
 
-            # Execute with bridged context
-            if agent_context and ctx:
-                return await self.with_bridged_context(agent_context, ctx, execute_send)
-            else:
-                return await execute_send()
+                # Execute with bridged context
+                if agent_context and ctx:
+                    return await self.with_bridged_context(agent_context, ctx, execute_send)
+                else:
+                    return await execute_send()
+            except Exception as e:
+                # Always return a controlled error, never re-raise
+                return f"[ERROR] {type(e).__name__}: {str(e)}"
 
         # Register a history prompt for this agent
         @self.mcp_server.prompt(
