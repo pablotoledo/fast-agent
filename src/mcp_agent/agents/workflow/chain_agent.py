@@ -67,54 +67,60 @@ class ChainAgent(BaseAgent):
         Returns:
             The response from the final agent in the chain
         """
+        try:
+            # # Get the original user message (last message in the list)
+            user_message = multipart_messages[-1] if multipart_messages else None
 
-        # # Get the original user message (last message in the list)
-        user_message = multipart_messages[-1] if multipart_messages else None
+            if not self.cumulative:
+                response: PromptMessageMultipart = await self.agents[0].generate(multipart_messages)
+                # Process the rest of the agents in the chain
+                for agent in self.agents[1:]:
+                    next_message = Prompt.user(*response.content)
+                    response = await agent.generate([next_message])
 
-        if not self.cumulative:
-            response: PromptMessageMultipart = await self.agents[0].generate(multipart_messages)
-            # Process the rest of the agents in the chain
-            for agent in self.agents[1:]:
-                next_message = Prompt.user(*response.content)
-                response = await agent.generate([next_message])
+                return response
 
-            return response
+            # Track all responses in the chain
+            all_responses: List[PromptMessageMultipart] = []
 
-        # Track all responses in the chain
-        all_responses: List[PromptMessageMultipart] = []
+            # Initialize list for storing formatted results
+            final_results: List[str] = []
 
-        # Initialize list for storing formatted results
-        final_results: List[str] = []
+            # Add the original request with XML tag
+            request_text = f"<fastagent:request>{user_message.all_text()}</fastagent:request>"
+            final_results.append(request_text)
 
-        # Add the original request with XML tag
-        request_text = f"<fastagent:request>{user_message.all_text()}</fastagent:request>"
-        final_results.append(request_text)
+            # Process through each agent in sequence
+            for i, agent in enumerate(self.agents):
+                # In cumulative mode, include the original message and all previous responses
+                chain_messages = multipart_messages.copy()
+                chain_messages.extend(all_responses)
+                current_response = await agent.generate(chain_messages, request_params)
 
-        # Process through each agent in sequence
-        for i, agent in enumerate(self.agents):
-            # In cumulative mode, include the original message and all previous responses
-            chain_messages = multipart_messages.copy()
-            chain_messages.extend(all_responses)
-            current_response = await agent.generate(chain_messages, request_params)
+                # Store the response
+                all_responses.append(current_response)
 
-            # Store the response
-            all_responses.append(current_response)
+                response_text = current_response.all_text()
+                attributed_response = (
+                    f"<fastagent:response agent='{agent.name}'>{response_text}</fastagent:response>"
+                )
+                final_results.append(attributed_response)
 
-            response_text = current_response.all_text()
-            attributed_response = (
-                f"<fastagent:response agent='{agent.name}'>{response_text}</fastagent:response>"
+                if i < len(self.agents) - 1:
+                    [Prompt.user(current_response.all_text())]
+
+            # For cumulative mode, return the properly formatted output with XML tags
+            response_text = "\n\n".join(final_results)
+            return PromptMessageMultipart(
+                role="assistant",
+                content=[TextContent(type="text", text=response_text)],
             )
-            final_results.append(attributed_response)
-
-            if i < len(self.agents) - 1:
-                [Prompt.user(current_response.all_text())]
-
-        # For cumulative mode, return the properly formatted output with XML tags
-        response_text = "\n\n".join(final_results)
-        return PromptMessageMultipart(
-            role="assistant",
-            content=[TextContent(type="text", text=response_text)],
-        )
+        except Exception as e:
+            # Return a controlled error response
+            return PromptMessageMultipart(
+                role="assistant",
+                content=[TextContent(type="text", text=f"[ERROR] {type(e).__name__}: {str(e)}")],
+            )
 
     async def structured(
         self,
