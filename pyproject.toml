@@ -95,6 +95,11 @@ fastagent = "mcp_agent.cli.__main__:app"
 silsila = "mcp_agent.cli.__main__:app"
 prompt-server = "mcp_agent.mcp.prompts.__main__:main"
 
+# Corregir la definición de paquetes
+[[tool.poetry.packages]]
+include = "mcp_agent"
+from = "src"
+
 # Sistema de construcción (mantener ambos para compatibilidad)
 [build-system]
 requires = ["poetry-core>=1.0.0", "hatchling"]
@@ -124,11 +129,6 @@ include = [
     "examples/mcp/**/*.yaml",
     "examples/mcp/**/*.example",
 ]
-
-[tool.poetry.packages]
-[[tool.poetry.packages]]
-include = "mcp_agent"
-from = "src"
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
