@@ -99,3 +99,15 @@ class Agent(BaseAgent):
             list_prompts_func=list_prompts_wrapper,
             default=default_prompt,
         )
+
+    async def _generate_impl(
+        self,
+        multipart_messages,
+        request_params=None,
+        asgi_send=None,
+        sse_started=False,
+    ):
+        # Delegar en el LLM adjunto si está presente
+        if self._llm is not None:
+            return await self._llm.generate(multipart_messages, request_params)
+        raise NotImplementedError("No LLM attached to this agent.")
