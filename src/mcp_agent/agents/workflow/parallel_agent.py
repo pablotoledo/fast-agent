@@ -52,6 +52,8 @@ class ParallelAgent(BaseAgent):
         self,
         multipart_messages: List[PromptMessageMultipart],
         request_params: Optional[RequestParams] = None,
+        asgi_send=None,
+        sse_started: bool = False,
     ) -> PromptMessageMultipart:
         """
         Execute fan-out agents in parallel and aggregate their results with the fan-in agent.
@@ -59,6 +61,8 @@ class ParallelAgent(BaseAgent):
         Args:
             multipart_messages: List of messages to send to the fan-out agents
             request_params: Optional parameters to configure the request
+            asgi_send: Optional ASGI send function
+            sse_started: Whether SSE has started
 
         Returns:
             The aggregated response from the fan-in agent

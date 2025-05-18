@@ -148,6 +148,8 @@ class RouterAgent(BaseAgent):
         self,
         multipart_messages: List[PromptMessageMultipart],
         request_params: Optional[RequestParams] = None,
+        asgi_send=None,
+        sse_started: bool = False,
     ) -> PromptMessageMultipart:
         """
         Route the request to the most appropriate agent and return its response.
@@ -155,6 +157,8 @@ class RouterAgent(BaseAgent):
         Args:
             multipart_messages: Messages to route
             request_params: Optional request parameters
+            asgi_send: Optional ASGI send function
+            sse_started: Flag indicating if SSE has started
 
         Returns:
             The response from the selected agent

@@ -56,6 +56,8 @@ class ChainAgent(BaseAgent):
         self,
         multipart_messages: List[PromptMessageMultipart],
         request_params: Optional[RequestParams] = None,
+        asgi_send=None,  # Nuevo: canal ASGI opcional para SSE
+        sse_started: bool = False,  # Nuevo: indica si la respuesta SSE ya fue iniciada
     ) -> PromptMessageMultipart:
         """
         Chain the request through multiple agents in sequence.
@@ -63,6 +65,8 @@ class ChainAgent(BaseAgent):
         Args:
             multipart_messages: Initial messages to send to the first agent
             request_params: Optional request parameters
+            asgi_send: (opcional) callable ASGI para streaming SSE
+            sse_started: (opcional) True si la respuesta SSE ya fue iniciada
 
         Returns:
             The response from the final agent in the chain
@@ -72,11 +76,15 @@ class ChainAgent(BaseAgent):
         user_message = multipart_messages[-1] if multipart_messages else None
 
         if not self.cumulative:
-            response: PromptMessageMultipart = await self.agents[0].generate(multipart_messages)
+            response: PromptMessageMultipart = await self.agents[0].generate(
+                multipart_messages, request_params, asgi_send=asgi_send, sse_started=sse_started
+            )
             # Process the rest of the agents in the chain
             for agent in self.agents[1:]:
                 next_message = Prompt.user(*response.content)
-                response = await agent.generate([next_message])
+                response = await agent.generate(
+                    [next_message], request_params, asgi_send=asgi_send, sse_started=sse_started
+                )
 
             return response
 
@@ -95,7 +103,9 @@ class ChainAgent(BaseAgent):
             # In cumulative mode, include the original message and all previous responses
             chain_messages = multipart_messages.copy()
             chain_messages.extend(all_responses)
-            current_response = await agent.generate(chain_messages, request_params)
+            current_response = await agent.generate(
+                chain_messages, request_params, asgi_send=asgi_send, sse_started=sse_started
+            )
 
             # Store the response
             all_responses.append(current_response)

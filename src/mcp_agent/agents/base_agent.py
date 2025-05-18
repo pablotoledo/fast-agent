@@ -576,22 +576,24 @@ class BaseAgent(MCPAggregator, AgentProtocol):
     async def generate(
         self,
         multipart_messages: List[PromptMessageMultipart],
-        request_params: RequestParams | None = None,
+        request_params: Optional[RequestParams] = None,
+        asgi_send=None,
+        sse_started: bool = False,
     ) -> PromptMessageMultipart:
-        """
-        Create a completion with the LLM using the provided messages.
-        Delegates to the attached LLM.
+        response = await self._generate_impl(
+            multipart_messages, request_params, asgi_send=asgi_send, sse_started=sse_started
+        )
+        return response
 
-        Args:
-            multipart_messages: List of multipart messages to send to the LLM
-            request_params: Optional parameters to configure the request
-
-        Returns:
-            The LLM's response as a PromptMessageMultipart
-        """
-        assert self._llm
-        with self.tracer.start_as_current_span(f"Agent: '{self.name}' generate"):
-            return await self._llm.generate(multipart_messages, request_params)
+    async def _generate_impl(
+        self,
+        multipart_messages: List[PromptMessageMultipart],
+        request_params: Optional[RequestParams] = None,
+        asgi_send=None,
+        sse_started: bool = False,
+    ) -> PromptMessageMultipart:
+        # Este método debe ser implementado por subclases
+        raise NotImplementedError()
 
     async def structured(
         self,

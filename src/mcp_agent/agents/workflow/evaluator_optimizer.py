@@ -110,6 +110,8 @@ class EvaluatorOptimizerAgent(BaseAgent):
         self,
         multipart_messages: List[PromptMessageMultipart],
         request_params: Optional[RequestParams] = None,
+        asgi_send=None,
+        sse_started: bool = False,
     ) -> PromptMessageMultipart:
         """
         Generate a response through evaluation-guided refinement.
@@ -117,6 +119,8 @@ class EvaluatorOptimizerAgent(BaseAgent):
         Args:
             multipart_messages: Messages to process
             request_params: Optional request parameters
+            asgi_send: ASGI send function for server-sent events
+            sse_started: Flag indicating if SSE has started
 
         Returns:
             The optimized response after evaluation and refinement
