@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from mcp_agent.core.prompt import Prompt
 
 if TYPE_CHECKING:
+    from mcp_agent.llm.memory import Memory
     from mcp_agent.mcp.prompt_message_multipart import PromptMessageMultipart
 
 
@@ -18,16 +19,15 @@ if TYPE_CHECKING:
 @pytest.mark.parametrize(
     "model_name",
     [
-        "gpt-4.1",
-        "gpt-4.1-nano",
         "gpt-4.1-mini",
         "gpt-4o-mini",  # OpenAI model
         "haiku35",  # Anthropic model
         "deepseek",
         #        "generic.qwen2.5:latest",
-        "generic.llama3.2:latest",
+        #        "generic.llama3.2:latest",
         "openrouter.google/gemini-2.0-flash-001",
         "google.gemini-2.0-flash",
+        "azure.gpt-4.1",
     ],
 )
 async def test_basic_textual_prompting(fast_agent, model_name):
@@ -57,10 +57,44 @@ async def test_basic_textual_prompting(fast_agent, model_name):
 @pytest.mark.parametrize(
     "model_name",
     [
+        "gpt-4.1-nano",
+    ],
+)
+async def test_open_ai_history(fast_agent, model_name):
+    """Test that the agent can process an image and respond appropriately."""
+    fast = fast_agent
+
+    # Define the agent
+    @fast.agent(
+        "agent",
+        instruction="SYSTEM PROMPT",
+        model=model_name,
+    )
+    async def agent_function():
+        async with fast.run() as agent:
+            await agent.send("MESSAGE ONE")
+            await agent.send("MESSAGE TWO")
+
+            provider_history: Memory = agent.agent._llm.history
+            multipart_history = agent.agent.message_history
+
+            assert 4 == len(provider_history.get())
+            assert 4 == len(multipart_history)
+
+    await agent_function()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+@pytest.mark.e2e
+@pytest.mark.parametrize(
+    "model_name",
+    [
         "gpt-4o-mini",  # OpenAI model
         "haiku35",  # Anthropic model
         "deepseek",
         "openrouter.google/gemini-2.0-flash-001",
+        "o3-mini.low",
     ],
 )
 async def test_multiple_text_blocks_prompting(fast_agent, model_name):
@@ -145,9 +179,9 @@ class WeatherForecast(BaseModel):
     [
         "gpt-4o",  # OpenAI model
         "o3-mini.low",  # reasoning
-        "gpt-4.1",
         "gpt-4.1-nano",
         "gpt-4.1-mini",
+        "azure.gpt-4.1",
     ],
 )
 async def test_structured_weather_forecast_openai_structured_api(fast_agent, model_name):
@@ -258,11 +292,12 @@ async def test_generic_model_textual_prompting(fast_agent, model_name):
         "deepseek",
         "haiku35",
         "gpt-4o",
-        "gpt-4.1",
         "gpt-4.1-nano",
         "gpt-4.1-mini",
         "google.gemini-2.0-flash",
         "openrouter.google/gemini-2.0-flash-001",
+        "o3-mini.low",
+        "azure.gpt-4.1",
     ],
 )
 async def test_basic_tool_calling(fast_agent, model_name):
@@ -304,11 +339,10 @@ async def test_basic_tool_calling(fast_agent, model_name):
         "deepseek",
         "haiku35",
         "gpt-4o",
-        "gpt-4.1",
-        "gpt-4.1-nano",
         "gpt-4.1-mini",
         "google.gemini-2.0-flash",
         "openrouter.anthropic/claude-3.7-sonnet",
+        "azure.gpt-4.1",
     ],
 )
 async def test_tool_calls_no_args(fast_agent, model_name):
