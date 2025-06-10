@@ -1,5 +1,9 @@
-"""
-Enhanced AgentMCPServer with robust shutdown handling for SSE transport.
+"""Agent MCP server utilities with improved SSE handling.
+
+This module patches :meth:`FastMCP.sse_app` at runtime to avoid returning a
+second :class:`starlette.responses.Response` after the SSE connection completes.
+The extra response triggered ``"Unexpected ASGI message 'http.response.start'"``
+errors and caused timeouts when chaining agents in server mode.
 """
 
 import asyncio
@@ -8,8 +12,20 @@ import signal
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Set
 
+from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
+from mcp.server.auth.middleware.bearer_auth import (
+    BearerAuthBackend,
+    RequireAuthMiddleware,
+)
 from mcp.server.fastmcp import Context as MCPContext
 from mcp.server.fastmcp import FastMCP
+from mcp.server.sse import SseServerTransport
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.authentication import AuthenticationMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Mount, Route
 
 import mcp_agent
 import mcp_agent.core
@@ -36,6 +52,99 @@ class AgentMCPServer:
             instructions=server_description
             or f"This server provides access to {len(agent_app._agents)} agents",
         )
+
+        # Patch FastMCP.sse_app to avoid returning an extra Response that
+        # triggers "Unexpected ASGI message 'http.response.start'" errors when
+        # running in server mode with SSE transport.  The upstream implementation
+        # returns a Response after the EventSourceResponse has already completed
+        # which causes Starlette to attempt to start a new response on a closed
+        # connection.  Removing that return fixes timeouts when chaining agents.
+        def patched_sse_app(self_mcp, mount_path: str | None = None):
+            if mount_path is not None:
+                self_mcp.settings.mount_path = mount_path
+
+            normalized_message_endpoint = self_mcp._normalize_path(
+                self_mcp.settings.mount_path, self_mcp.settings.message_path
+            )
+
+            sse = SseServerTransport(normalized_message_endpoint)
+
+            async def handle_sse(scope, receive, send):
+                async with sse.connect_sse(scope, receive, send) as streams:
+                    await self_mcp._mcp_server.run(
+                        streams[0],
+                        streams[1],
+                        self_mcp._mcp_server.create_initialization_options(),
+                    )
+
+            routes = []
+            middleware = []
+            required_scopes = []
+
+            if self_mcp._auth_server_provider:
+                assert self_mcp.settings.auth
+                from mcp.server.auth.routes import create_auth_routes
+
+                required_scopes = self_mcp.settings.auth.required_scopes or []
+
+                middleware = [
+                    Middleware(
+                        AuthenticationMiddleware,
+                        backend=BearerAuthBackend(
+                            provider=self_mcp._auth_server_provider,
+                        ),
+                    ),
+                    Middleware(AuthContextMiddleware),
+                ]
+                routes.extend(
+                    create_auth_routes(
+                        provider=self_mcp._auth_server_provider,
+                        issuer_url=self_mcp.settings.auth.issuer_url,
+                        service_documentation_url=self_mcp.settings.auth.service_documentation_url,
+                        client_registration_options=self_mcp.settings.auth.client_registration_options,
+                        revocation_options=self_mcp.settings.auth.revocation_options,
+                    )
+                )
+
+            if self_mcp._auth_server_provider:
+                routes.append(
+                    Route(
+                        self_mcp.settings.sse_path,
+                        endpoint=RequireAuthMiddleware(handle_sse, required_scopes),
+                        methods=["GET"],
+                    )
+                )
+                routes.append(
+                    Mount(
+                        self_mcp.settings.message_path,
+                        app=RequireAuthMiddleware(sse.handle_post_message, required_scopes),
+                    )
+                )
+            else:
+
+                async def sse_endpoint(request: Request) -> Response:
+                    return await handle_sse(request.scope, request.receive, request._send)  # type: ignore[arg-type]
+
+                routes.append(
+                    Route(
+                        self_mcp.settings.sse_path,
+                        endpoint=sse_endpoint,
+                        methods=["GET"],
+                    )
+                )
+                routes.append(
+                    Mount(
+                        self_mcp.settings.message_path,
+                        app=sse.handle_post_message,
+                    )
+                )
+
+            routes.extend(self_mcp._custom_starlette_routes)
+
+            return Starlette(debug=self_mcp.settings.debug, routes=routes, middleware=middleware)
+
+        # Bind the patched method to the FastMCP instance
+        self.mcp_server.sse_app = patched_sse_app.__get__(self.mcp_server, FastMCP)
         # Shutdown coordination
         self._graceful_shutdown_event = asyncio.Event()
         self._force_shutdown_event = asyncio.Event()
