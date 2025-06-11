@@ -69,32 +69,29 @@ class AgentMCPServer:
         )
         async def send_message(message: str, ctx: MCPContext) -> str:
             """Send a message to the agent and return its response."""
-            # Get the agent's context
+            from mcp_agent.agents.workflow.chain_agent import ChainAgent
+
+            # For chain agents, handle execution without SSE aggregation
+            if isinstance(agent, ChainAgent):
+                response = await agent.send(message)
+
+                if hasattr(response, "all_text"):
+                    return response.all_text()
+                elif isinstance(response, dict):
+                    import json
+
+                    return json.dumps(response)
+                return str(response)
+
+            # Non-chain agents use normal flow
             agent_context = getattr(agent, "context", None)
 
-            # Define the function to execute
             async def execute_send():
                 return await agent.send(message)
 
-            # Execute with bridged context
             if agent_context and ctx:
-                aggregator = None
-                try:
-                    from mcp_agent.agents.workflow.chain_agent import ChainAgent
-
-                    if isinstance(agent, ChainAgent):
-                        aggregator = ChainResponseAggregator(
-                            chain_name=agent_name,
-                            total_agents=len(agent.agents),
-                        )
-                except Exception:
-                    aggregator = None
-
-                return await self.with_bridged_context(
-                    agent_context, ctx, execute_send, aggregator=aggregator
-                )
-            else:
-                return await execute_send()
+              return await self.with_bridged_context(agent_context, ctx, execute_send)
+            return await execute_send()
 
         # Register a history prompt for this agent
         @self.mcp_server.prompt(
@@ -389,7 +386,6 @@ class AgentMCPServer:
         mcp_context,
         func,
         *args,
-        aggregator=None,
         **kwargs,
     ):
         """
